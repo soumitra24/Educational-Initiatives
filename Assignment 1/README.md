@@ -29,4 +29,4 @@ npx ts-node "Assignment 1/Structural/Composite.ts"
 npx ts-node "Assignment 1/Structural/Decorator.ts"
 ```
 
-The builder demo launches an interactive menu; the others print scenario logs immediately. Feel free to tweak constants in each script to explore different combat encounters or loot tables.
+"The builder demo launches an interactive menu"
