@@ -4,6 +4,27 @@
 // Builder: ICharacterBuilder interface
 // Concrete Builder: HeroBuilder
 
+import * as readline from 'readline';
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+const promptUser = (question: string): Promise<string> => {
+  return new Promise(resolve => {
+    rl.question(question, (answer: string) => {
+      resolve(answer);
+    });
+  });
+};
+
+const ensureText = (value: string, label: string): string => {
+  if (!value || !value.trim()) {
+    throw new Error(`${label} cannot be empty`);
+  }
+  return value.trim();
+};
 
 // The complex object we want to build
 class Character {
@@ -12,10 +33,12 @@ class Character {
   public equipment: string[] = [];
 
   public display(): void {
-    console.log("***Character Sheet***");
-    console.log(`Race: ${this.race}`);
-    console.log(`Class: ${this.characterClass}`);
-    console.log(`Equipment: ${this.equipment.join(", ")}`);
+    console.log("\n*** CHARACTER SHEET ***");
+    console.log(`Race: ${this.race || 'Not set'}`);
+    console.log(`Class: ${this.characterClass || 'Not set'}`);
+    const equipmentList = this.equipment.length > 0 ? this.equipment.join(", ") : 'None';
+    console.log(`Equipment: ${equipmentList}`);
+    console.log("***********************\n");
   }
 }
 
@@ -34,56 +57,96 @@ class HeroBuilder implements ICharacterBuilder {
   constructor() {
     this.character = new Character();
   }
-
-  // A reset method to allow using the same builder for multiple characters
+  
   public reset(): void {
     this.character = new Character();
   }
 
   public setRace(race: string): this {
-    this.character.race = race;
+    this.character.race = ensureText(race, "Race");
     return this;
   }
 
   public setClass(characterClass: string): this {
-    this.character.characterClass = characterClass;
+    this.character.characterClass = ensureText(characterClass, "Class");
     return this;
   }
 
   public addEquipment(item: string): this {
-    this.character.equipment.push(item);
+    this.character.equipment.push(ensureText(item, "Equipment"));
     return this;
   }
-
-  // The final method to retrieve the built object
+  
   public getResult(): Character {
     const result = this.character;
-    this.reset(); // Reset for the next build
+    // We don't reset here so the user can see the final product
+    // The reset option is now manual
     return result;
+  }
+  
+  // A helper to see the current state without finalizing the build
+  public displayCurrentBuild(): void {
+    this.character.display();
   }
 }
 
-// Client Code
-const heroBuilder = new HeroBuilder();
+// Main interactive application loop
+const runInteractiveBuilder = async () => {
+  const heroBuilder = new HeroBuilder();
+  let appIsRunning = true;
 
-console.log("Creating a Paladin...")
-const paladin = heroBuilder
-  .setRace("Human")
-  .setClass("Paladin")
-  .addEquipment("Plate Armor")
-  .addEquipment("Greatsword")
-  .addEquipment("Shield")
-  .getResult();
+  console.log("--- Welcome to the Interactive Character Builder ---");
 
-paladin.display();
+  while (appIsRunning) {
+    heroBuilder.displayCurrentBuild();
+    const choice = await promptUser(
+      "Choose an action:\n" +
+      "1. Set Race\n" +
+      "2. Set Class\n" +
+      "3. Add Equipment\n" +
+      "4. Finish and Display Character\n" +
+      "5. Reset Character\n" +
+      "6. Exit\n" +
+      "> "
+    );
 
-console.log("\nCreating a Rogue...");
-// this builder instance can be reused
-const rogue = heroBuilder
-  .setRace("Elf")
-  .setClass("Rogue")
-  .addEquipment("Leather Tunic")
-  .addEquipment("Dual Daggers")
-  .getResult();
-  
-rogue.display();
+    try {
+      switch (choice.trim()) {
+        case '1':
+          const raceChoice = await promptUser("Choose a Race (Human, Elf, Dwarf): ");
+          heroBuilder.setRace(raceChoice);
+          break;
+        case '2':
+          const classChoice = await promptUser("Choose a Class (Paladin, Rogue, Mage): ");
+          heroBuilder.setClass(classChoice);
+          break;
+        case '3':
+          const equipment = await promptUser("Enter an equipment item: ");
+          heroBuilder.addEquipment(equipment);
+          break;
+        case '4':
+          const finalCharacter = heroBuilder.getResult();
+          console.log("Your character is complete!");
+          finalCharacter.display();
+          break;
+        case '5':
+          heroBuilder.reset();
+          console.log("Character has been reset.");
+          break;
+        case '6':
+          appIsRunning = false;
+          console.log("Exiting builder...");
+          break;
+        default:
+          console.log("Invalid choice, please try again.");
+      }
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`\nError: ${message}\n`);
+    }
+  }
+
+  rl.close();
+};
+
+runInteractiveBuilder();

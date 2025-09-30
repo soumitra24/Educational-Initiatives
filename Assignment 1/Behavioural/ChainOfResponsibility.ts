@@ -1,12 +1,31 @@
 //This code shows how a damage request is passed along a chain of handlers (armor, resistance, shields), each modifying the final damage amount.
 //Handler: DamageHandler abstract class
 //Concrete Handlers: ArmorHandler, ElementalResistanceHandler, MagicShieldHandler
+const ARMOR_VALUE = 20;
+const FIRE_RESISTANCE_PERCENT = 30;
+const SHIELD_HEALTH = 45;
 
+type DamageType = 'Physical' | 'Fire' | 'Ice';
 
+const ensureAmount = (value: number) => {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error("Damage amount must be a non-negative number");
+  }
+  return value;
+};
+
+const ensureType = (value: DamageType) => value;
 
 // Damage object passed through the chain
 class Damage {
-  constructor(public amount: number, public type: 'Physical' | 'Fire' | 'Ice') {}
+  constructor(public amount: number, public type: DamageType) {
+    this.amount = ensureAmount(amount);
+    this.type = ensureType(type);
+  }
+
+  public clone(): Damage {
+    return new Damage(this.amount, this.type);
+  }
 }
 
 // The abstract handler interface defines the chain
@@ -76,25 +95,29 @@ class MagicShieldHandler extends DamageHandler {
 
 // Client code
 // Chain: Armor -> Elemental Resistance -> Magic Shield
-const playerChain = new ArmorHandler(20);
-playerChain
-  .setNext(new ElementalResistanceHandler(30)) //30% fire resistance
-  .setNext(new MagicShieldHandler(45));
+const createPlayerChain = () => {
+  const chain = new ArmorHandler(ARMOR_VALUE);
+  chain
+    .setNext(new ElementalResistanceHandler(FIRE_RESISTANCE_PERCENT))
+    .setNext(new MagicShieldHandler(SHIELD_HEALTH));
+  return chain;
+};
 
-// Scenario 1: Physical Attack
+const runScenario = (description: string, amount: number, type: DamageType) => {
+  try {
+    const chain = createPlayerChain();
+    const incoming = new Damage(amount, type);
+    const result = chain.handle(incoming.clone());
+    const rounded = Math.round(result.amount);
+    console.log(`Final ${result.type.toLowerCase()} damage taken: ${rounded}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Scenario failed: ${message}`);
+  }
+};
+
 console.log("A hound attacks with a 100 damage Physical blow...");
-let physicalDamage = new Damage(100, 'Physical');
-physicalDamage = playerChain.handle(physicalDamage);
-console.log(`Final physical damage taken: ${Math.round(physicalDamage.amount)}`);
+runScenario("Physical damage processed", 100, 'Physical');
 
-// Scenario 2: Fire Attack
 console.log("\nA Dragon attacks with a 200 damage Fire breath...");
-let fireDamage = new Damage(200, 'Fire');
-// We need a new chain instance because the shield's health was depleted
-const newPlayerChain = new ArmorHandler(20);
-newPlayerChain
-    .setNext(new ElementalResistanceHandler(30))
-    .setNext(new MagicShieldHandler(45));
-
-fireDamage = newPlayerChain.handle(fireDamage);
-console.log(`Final fire damage taken: ${Math.round(fireDamage.amount)}`);
+runScenario("Fire damage processed", 200, 'Fire');
